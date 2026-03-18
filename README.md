@@ -1,4 +1,4 @@
-# MuBot 🤖
+# KammRobo 🤖
 
 A real-physics-based robot path-following simulation built with Python and Pygame. MuBot uses a PID controller, the Friction Circle (Kamm Circle) model, and radius-of-curvature-based pre-emptive braking to follow a Lissajous curve as realistically as possible.
 
@@ -6,7 +6,7 @@ A real-physics-based robot path-following simulation built with Python and Pygam
 
 ## What it does
 
-MuBot simulates a robot trying to stay on a moving target point along a parametric path. The physics are grounded in real vehicle dynamics concepts:
+It simulates a robot trying to stay on a moving target point along a parametric path. The physics are grounded in real vehicle dynamics concepts:
 
 - **PID steering** — proportional, integral, and derivative gain control drives the robot toward the target dot
 - **Friction Circle** — lateral and longitudinal forces share a single grip budget (μmg), modeled after the Kamm Circle
@@ -27,7 +27,7 @@ x(t) = cx + 250·cos(1.2t)
 y(t) = cy + 180·sin(1.1t)
 ```
 
-The red dot is the target. The robot chases after it in real time.
+The red dot is the target. KammRobo chases after it in real time.
 
 ---
 
