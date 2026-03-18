@@ -1,6 +1,6 @@
 # KammRobo 🤖
 
-A real-physics-based robot path-following simulation built with Python and Pygame. MuBot uses a PID controller, the Friction Circle (Kamm Circle) model, and radius-of-curvature-based pre-emptive braking to follow a Lissajous curve as realistically as possible.
+A real-physics-based robot path-following simulation built with Python and Pygame. KammRobo uses a PID controller, the Friction Circle (Kamm Circle) model, and radius-of-curvature-based pre-emptive braking to follow a Lissajous curve as realistically as possible.
 
 ---
 
@@ -79,6 +79,9 @@ Forces are computed in **pixel-space** (pixels per second²), scaled from SI uni
 The centripetal force check is: `F_lat = mv²/R`, where `v` is in px/s and `R` is in px.
 
 ---
+
+## Comments from Creator
+KammRobo is definetely not yet a finished project and is definetely open to contributions. I'm just very excited to finally make something of my own that truly reflects my intrest in Robotics. Let's Goooo!!
 
 ## License
 
