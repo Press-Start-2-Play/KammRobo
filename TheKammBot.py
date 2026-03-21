@@ -3,44 +3,51 @@ import math
 
 # --- INITIALIZATION ---
 pygame.init()
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1024, 768
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
+pygame.display.set_caption('KammRobo')
+
+# Colors
+CLR_BG = (10, 12, 15)
+CLR_PATH = (40, 45, 50)
+CLR_TRACK = (0, 255, 200)
+CLR_DRIFT = (255, 50, 50)
+CLR_TEXT = (200, 210, 220)
 
 center = pygame.Vector2(WIDTH // 2, HEIGHT // 2)
 path_time = 0.0
 dt = 0.016
 
 # --- SCALE ---
-# 1 meter = 100 pixels. All physics constants are converted into pixel-space.
-PIXELS_PER_METER = 100.0  # tune this to make the robot feel faster/slower
+PIXELS_PER_METER = 100.0
 
-robot_pos = pygame.Vector2(center.x, center.y)
+# Robot State
+mass = 3
+robot_pos = pygame.Vector2(center.x , center.y)
 robot_vel = pygame.Vector2(0, 0)
 
-mass = 1.0                    # kg (dimensionless here; cancels out)
+# Physics Constants
 co_of_friction = 0.7
 g_mps2 = 9.80665              # m/s²
 g_pxps2 = g_mps2 * PIXELS_PER_METER   # px/s²  →  980.665 px/s²
+max_frictional_force = mass * g_pxps2 * co_of_friction   #686 px-force
 
-# Max friction force in pixel units: F = m * g_px * mu  (px/s² * kg = px-force)
-max_frictional_force = mass * g_pxps2 * co_of_friction   # ≈ 686 px-force
-
-# PID Gains — tuned for pixel distances (errors are now 0-300 px, not 0-3 m)
-kp = 8.0    # was 0.15 in SI; pixel errors are ~100x larger so gain scales down
-ki = 0.5
-kd = 1.5
-
+# PID Gains — Dynamically tuned for response to diifferent masses
+kp = 32.5 * mass   
+ki = 2.5 *mass
+kd = 10* mass
 integral_sum = pygame.Vector2(0, 0)
 last_error   = pygame.Vector2(0, 0)
 last_R = 10000
 
-# --- PATH LOGIC ---
-def get_path_info(time_val):
-    """
-    Returns position (px) and radius of curvature R (px) for the Lissajous path.
-    All coordinates are already in pixels — no conversion needed here.
-    """
+#Aesthetics
+font_small = pygame.font.SysFont("Consolas", 18)
+font_large = pygame.font.SysFont("Consolas", 28, bold=True)
+
+# # --- PATH LOGIC ---
+def get_path_info(time_val):   
+    #Returns position (px) and radius of curvature R (px) for the Lissajous path.
     x   =  center.x + 250 * math.cos(1.2 * time_val)
     y   =  center.y + 180 * math.sin(1.1 * time_val)
     dx  = -250 * 1.2 * math.sin(1.2 * time_val)
@@ -76,64 +83,64 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    # 1. Geometry
     path_time += dt
     target, R = get_path_info(path_time)
     dR_dt = (R - last_R) / dt
     last_R = R
 
-    # 2. PID Force  (pixel-space error → pixel-force)
+    # PID Force  
     error = target - robot_pos
     integral_sum += error * dt
-    if integral_sum.length() > 500:           # clamp in px (was 10 in SI)
-        integral_sum.scale_to_length(500)
+    if integral_sum.length() > 1000:     
+        integral_sum.scale_to_length(1000)
     derivative = (error - last_error) / dt
     desired_force = (kp * error) + (ki * integral_sum) + (kd * derivative)
     last_error = error
 
-    # 3. Friction Circle  (all values in pixel-force units)
-    speed = robot_vel.length()                # px/s
+    # Friction Circle
+    speed = robot_vel.length()   # px/s
     # Centripetal: F = m * v² / R  — v in px/s, R in px → force in px-force
-    f_lat_required = (mass * speed**2) / R if R > 0 else 0
-    f_lat_actual   = min(f_lat_required, max_frictional_force)
+    f_centripetal = (mass * speed**2) / R if R > 0 else 0
+    f_lat_actual   = min(f_centripetal, max_frictional_force)
 
     # Longitudinal budget (Pythagorean)
-    long_budget = math.sqrt(max(0, max_frictional_force**2 - f_lat_actual**2))
+    f_long = math.sqrt(max(0, max_frictional_force**2 - f_lat_actual**2))
 
-    # 4. Pre-emptive braking  (pixel-space)
-    if dR_dt < 0 and speed > 50:             # speed threshold in px/s (was 10)
-        brake_strength = abs(dR_dt) * 0.2
-        if speed > 0.1:
-            braking_force = -robot_vel.normalize() * min(brake_strength, long_budget)
-            desired_force += braking_force
+    # Pre-emptive braking 
+    if dR_dt < 0 and speed > 500:     # should experiment with the speed
+        brake_strength = abs(dR_dt) * 0.2  
+        braking_force = -robot_vel.normalize() * min(brake_strength, f_long)
+        desired_force += braking_force
 
-    # 5. Clamp total force to friction circle
+    # Clamp total force
     if desired_force.length() > max_frictional_force:
         desired_force.scale_to_length(max_frictional_force)
 
-    # 6. Drift check  (speed threshold in px/s)
+    # Drift check  (speed threshold)
     #    v_grip = sqrt(F_max * R / m)  — already in pixel units
-    v_grip = math.sqrt(max_frictional_force * R / mass) + 50   # +50 px/s margin
+    v_grip = math.sqrt(max_frictional_force * R / mass)
     is_drifting = speed > v_grip
     if is_drifting:
         path_time = find_closest_t(robot_pos, path_time)
 
-    # 7. Physics Integration  (F/m = px/s²,  standard Euler)
+    # Physics Integration  (F/m = px/s²,  standard Euler)
     robot_acc  = desired_force / mass
     robot_vel += robot_acc * dt
     robot_pos += robot_vel * dt
 
     # --- DRAW ---
-    screen.fill((30, 30, 30))
+    
+    screen.fill(CLR_BG)
 
-    for i in range(200):
+    for i in range(500):
         p, _ = get_path_info(path_time - 2 + i * 0.02)
-        pygame.draw.circle(screen, (60, 60, 60), (int(p.x), int(p.y)), 1)
+        pygame.draw.circle(screen, (CLR_TRACK), (int(p.x), int(p.y)), 1)
 
     color = (255, 255, 0) if is_drifting else (0, 255, 100)
     pygame.draw.circle(screen, color, (int(robot_pos.x), int(robot_pos.y)), 10)
-    pygame.draw.circle(screen, (255, 0, 0), (int(target.x), int(target.y)), 4)
+    pygame.draw.circle(screen, (30, 30, 30), (int(target.x), int(target.y)), 4)
 
     pygame.display.flip()
+
 
 pygame.quit()
