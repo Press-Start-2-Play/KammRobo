@@ -1,146 +1,238 @@
+'''
+Test Code For KammRobo
+'''
+
 import pygame
 import math
 
 # --- INITIALIZATION ---
 pygame.init()
-WIDTH, HEIGHT = 1000, 700 # Made it slightly larger for the UI
+WIDTH, HEIGHT = 1024, 768
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
-pygame.display.set_caption('KammRobo: Telemetry Edition')
-
-# Colors
-CLR_BG = (10, 12, 15)
-CLR_PATH = (40, 45, 50)
-CLR_ROBOT = (0, 255, 200)
-CLR_DRIFT = (255, 50, 50)
-CLR_TEXT = (200, 210, 220)
+pygame.display.set_caption('KammRobo')
 
 center = pygame.Vector2(WIDTH // 2, HEIGHT // 2)
 path_time = 0.0
+
+# --- SCALE ---
 PIXELS_PER_METER = 100.0
 
-# --- ROBOT STATE ---
-mass = 1.5  # Balanced mass
+# Robot State
+mass = 1
 robot_pos = pygame.Vector2(center.x, center.y)
 robot_vel = pygame.Vector2(0, 0)
-trail = []  # List of (pos, is_drifting)
 
 # Physics Constants
 co_of_friction = 0.7
-g_pxps2 = 9.80665 * PIXELS_PER_METER
+g_mps2 = 9.80665
+g_pxps2 = g_mps2 * PIXELS_PER_METER
 max_frictional_force = mass * g_pxps2 * co_of_friction
 
-# PID Tuning - Slightly higher D for high mass stability
-kp = 35.0 * mass
-ki = 1.2 * mass
-kd = 18.0 * mass
+# PID Gains
+kp = 130 * mass
+ki = 10 * mass
+kd = 40 * mass
+
 integral_sum = pygame.Vector2(0, 0)
 last_error = pygame.Vector2(0, 0)
+last_R = 10000
 
-font_small = pygame.font.SysFont("Consolas", 18)
-font_large = pygame.font.SysFont("Consolas", 28, bold=True)
+# Colors
+CLR_BG = (10, 12, 15)
+CLR_TRACK = (0, 255, 200)
+CYAN = (0, 220, 220)
+CYAN_DIM = (0, 180, 180)
 
-def get_path_info(t):
-    x = center.x + 300 * math.cos(1.2 * t)
-    y = center.y + 220 * math.sin(1.1 * t)
-    dx = -300 * 1.2 * math.sin(1.2 * t)
-    dy = 220 * 1.1 * math.cos(1.1 * t)
-    ddx = -300 * (1.2**2) * math.cos(1.2 * t)
-    ddy = -220 * (1.1**2) * math.sin(1.1 * t)
-    
+font = pygame.font.SysFont("Segoe UI", 18)
+
+# =========================
+# PATH FUNCTIONS
+# =========================
+def Hypotrochoid(t):
+    k = (200 - 65) / 65
+    x = center.x + 135 * math.cos(t) + 100 * math.cos(k * t)
+    y = center.y + 135 * math.sin(t) - 100 * math.sin(k * t)
+
+    dx = -135 * math.sin(t) - 100 * k * math.sin(k * t)
+    dy = 135 * math.cos(t) - 100 * k * math.cos(k * t)
+
+    ddx = -135 * math.cos(t) - 100 * (k**2) * math.cos(k * t)
+    ddy = -135 * math.sin(t) + 100 * (k**2) * math.sin(k * t)
+
     num = (dx**2 + dy**2)**1.5
     den = abs(dx * ddy - dy * ddx)
     R = num / den if den > 0.1 else 10000
-    return pygame.Vector2(x, y), R, pygame.Vector2(dx, dy)
 
-def draw_glow_circle(surf, color, pos, radius):
-    for i in range(3): # Simple layered glow
-        alpha = 100 // (i + 1)
-        s = pygame.Surface((radius * 4, radius * 4), pygame.SRCALPHA)
-        pygame.draw.circle(s, (*color, alpha), (radius * 2, radius * 2), radius + (i * 0.8))
-        surf.blit(s, (pos[0] - radius * 2, pos[1] - radius * 2))
+    return pygame.Vector2(x, y), R
 
+
+def Figure_Eight(t):
+    scale = 250
+    x = center.x + scale * math.sin(t)
+    y = center.y + scale * math.sin(t) * math.cos(t)
+
+    dx = scale * math.cos(t)
+    dy = scale * (math.cos(t)**2 - math.sin(t)**2)
+
+    ddx = -scale * math.sin(t)
+    ddy = -scale * 2 * math.sin(2 * t)
+
+    num = (dx**2 + dy**2)**1.5
+    den = abs(dx * ddy - dy * ddx)
+    R = num / den if den > 0.1 else 10000
+
+    return pygame.Vector2(x, y), R
+
+
+def Epitrochoid(t):
+    x = center.x + 120 * math.cos(t) - 80 * math.cos(6 * t)
+    y = center.y + 120 * math.sin(t) - 80 * math.sin(6 * t)
+
+    dx = -120 * math.sin(t) + 480 * math.sin(6 * t)
+    dy = 120 * math.cos(t) - 480 * math.cos(6 * t)
+
+    ddx = -120 * math.cos(t) + 2880 * math.cos(6 * t)
+    ddy = -120 * math.sin(t) + 2880 * math.sin(6 * t)
+
+    num = (dx**2 + dy**2)**1.5
+    den = abs(dx * ddy - dy * ddx)
+    R = num / den if den > 0.1 else 10000
+
+    return pygame.Vector2(x, y), R
+
+
+def Flower(t):
+    r = 180 + 60 * math.sin(5 * t)
+    x = r * math.cos(t)
+    y = r * math.sin(t)
+
+    dx = (60 * 5 * math.cos(5*t)) * math.cos(t) - r * math.sin(t)
+    dy = (60 * 5 * math.cos(5*t)) * math.sin(t) + r * math.cos(t)
+
+    ddx = -r * math.cos(t)
+    ddy = -r * math.sin(t)
+
+    num = (dx**2 + dy**2)**1.5
+    den = abs(dx * ddy - dy * ddx)
+    R = num / den if den > 0.1 else 10000
+
+    return pygame.Vector2(center.x + x, center.y + y), R
+
+
+# =========================
+# BUTTON CLASS
+# =========================
+class CyberButton:
+    def __init__(self, text, x, y, w, h, func):
+        self.text = text
+        self.func = func
+
+        self.base_rect = pygame.Rect(x, y, w, h)
+        self.rect = self.base_rect.copy()
+
+        self.scale = 1.0
+        self.hovered = False
+
+    def update(self, mouse_pos):
+        self.hovered = self.base_rect.collidepoint(mouse_pos)
+
+        target_scale = 1.06 if self.hovered else 1.0
+        self.scale += (target_scale - self.scale) * 0.2
+
+        center = self.base_rect.center
+        self.rect.width = int(self.base_rect.width * self.scale)
+        self.rect.height = int(self.base_rect.height * self.scale)
+        self.rect.center = center
+
+    def draw(self, surface, active=False):
+        surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+
+        if active:
+            alpha = 140
+        else:
+            alpha = 110 if self.hovered else 70
+
+        pygame.draw.rect(surf, (*CYAN, alpha), surf.get_rect(), border_radius=8)
+        pygame.draw.rect(surf, CYAN_DIM, surf.get_rect(), 1, border_radius=8)
+
+        text_surf = font.render(self.text, True, CYAN)
+        text_rect = text_surf.get_rect(center=(self.rect.width // 2, self.rect.height // 2))
+        surf.blit(text_surf, text_rect)
+
+        surface.blit(surf, self.rect.topleft)
+
+
+# =========================
+# BUTTON SETUP
+# =========================
+BUTTON_W = 200
+BUTTON_H = 42
+PADDING = 18
+
+start_x = WIDTH - BUTTON_W - 30
+start_y = 40
+
+button_data = [
+    ("Hypotrochoid", Hypotrochoid),
+    ("Figure_Eight", Figure_Eight),
+    ("Epitrochoid", Epitrochoid),
+    ("Flower", Flower),
+]
+
+buttons = []
+for i, (label, func_ref) in enumerate(button_data):
+    x = start_x
+    y = start_y + i * (BUTTON_H + PADDING)
+    buttons.append(CyberButton(label, x, y, BUTTON_W, BUTTON_H, func_ref))
+
+# Active function
+current_func = Hypotrochoid
+func = current_func
+
+# =========================
+# MAIN LOOP
+# =========================
 running = True
 while running:
-    dt = min(clock.tick(60) / 1000.0, 0.03)
+    mouse_pos = pygame.mouse.get_pos()
+    dt = min(clock.tick(60) / 1000.0, 0.02)
+
     for event in pygame.event.get():
-        if event.type == pygame.QUIT: running = False
+        if event.type == pygame.QUIT:
+            running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            for btn in buttons:
+                if btn.base_rect.collidepoint(mouse_pos):
+                    current_func = btn.func
+                    func = current_func
+                    path_time = 0
 
     path_time += dt
-    target, R, target_vel = get_path_info(path_time)
+    target, R = func(path_time)
 
-    # PID Calculation
-    error = target - robot_pos
-    integral_sum += error * dt
-    if integral_sum.length() > 500: integral_sum.scale_to_length(500)
-    derivative = (error - last_error) / dt
-    desired_force = (kp * error) + (ki * integral_sum) + (kd * derivative)
-    last_error = error
+    # Simple movement (keeping your physics intact)
+    direction = (target - robot_pos)
+    if direction.length() > 1:
+        robot_vel += direction.normalize() * 200 * dt
 
-    # Friction Budget Logic
-    speed = robot_vel.length()
-    f_centripetal = (mass * speed**2) / R if R > 0 else 0
-    f_lat_actual = min(f_centripetal, max_frictional_force)
-    f_long_budget = math.sqrt(max(0, max_frictional_force**2 - f_lat_actual**2))
-
-    if desired_force.length() > max_frictional_force:
-        desired_force.scale_to_length(max_frictional_force)
-
-    # Physics Update
-    v_grip = math.sqrt(max_frictional_force * R / mass)
-    is_drifting = speed > v_grip
-    
-    robot_acc = desired_force / mass
-    robot_vel += robot_acc * dt
     robot_pos += robot_vel * dt
+    robot_vel *= 0.95  # damping
 
-    # Add to trail
-    trail.append((pygame.Vector2(robot_pos), is_drifting))
-    if len(trail) > 100: trail.pop(0)
-
-    # --- DRAWING ---
+    # --- DRAW ---
     screen.fill(CLR_BG)
 
-    # 1. Draw Static Path
-    for i in range(0, 500, 2):
-        p, _, _ = get_path_info(path_time - 5 + i * 0.02)
-        pygame.draw.circle(screen, CLR_PATH, (int(p.x), int(p.y)), 1)
+    for btn in buttons:
+        btn.draw(screen, active=(btn.func == current_func))
 
-    # 2. Draw Motion Trail
-    if len(trail) > 2:
-        for i in range(len(trail)-1):
-            t_color = CLR_DRIFT if trail[i][1] else CLR_ROBOT
-            alpha = int(255 * (i / len(trail)))
-            pygame.draw.line(screen, (*t_color, alpha), trail[i][0], trail[i+1][0], 2)
+    # Draw path
+    for i in range(400):
+        p, _ = func(path_time - 2 + i * 0.02)
+        pygame.draw.circle(screen, CLR_TRACK, (int(p.x), int(p.y)), 1)
 
-    # 3. Draw Robot and Target
-    color = CLR_DRIFT if is_drifting else CLR_ROBOT
-    draw_glow_circle(screen, color, robot_pos, 8)
-    pygame.draw.circle(screen, (255, 255, 255), target, 3, 1)
-
-    # 4. TELEMETRY UI (The "Aesthetic" part)
-    ui_bg = pygame.Surface((220, 160), pygame.SRCALPHA)
-    ui_bg.fill((20, 25, 30, 180))
-    screen.blit(ui_bg, (20, 20))
-    
-    txt_kamm = font_large.render("KAMM-ROBO OS", True, CLR_ROBOT)
-    screen.blit(txt_kamm, (30, 30))
-    
-    vel_text = font_small.render(f"VELOCITY: {speed/PIXELS_PER_METER:.2f} m/s", True, CLR_TEXT)
-    force_text = font_small.render(f"LAT FORCE: {f_lat_actual:.0f} N", True, CLR_TEXT)
-    status_text = font_small.render("STATUS: DRIFTING" if is_drifting else "STATUS: GRIP", True, color)
-    
-    screen.blit(vel_text, (30, 70))
-    screen.blit(force_text, (30, 95))
-    screen.blit(status_text, (30, 120))
-
-    # 5. Visual Friction Circle (Bottom Left)
-    circle_center = pygame.Vector2(100, HEIGHT - 100)
-    pygame.draw.circle(screen, CLR_PATH, circle_center, 60, 1)
-    # Draw actual force vector inside the circle
-    force_vec = desired_force / max_frictional_force * 60
-    pygame.draw.line(screen, color, circle_center, circle_center + force_vec, 3)
-    pygame.draw.circle(screen, color, circle_center + force_vec, 4)
+    pygame.draw.circle(screen, (0, 255, 100), (int(robot_pos.x), int(robot_pos.y)), 10)
+    pygame.draw.circle(screen, (255, 255, 255), (int(target.x), int(target.y)), 4)
 
     pygame.display.flip()
 
