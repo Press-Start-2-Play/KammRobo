@@ -1,88 +1,86 @@
 # KammRobo 🤖
 
-A real-physics-based robot path-following simulation built with Python and Pygame. KammRobo uses a PID controller, the Friction Circle (Kamm Circle) model, and radius-of-curvature-based pre-emptive braking to follow a Lissajous curve as realistically as possible.
+A real-physics-based robot path-following simulation built with Python and Pygame. KammRobo uses a PID controller, the **Friction Circle (Kamm Circle)** model, and radius-of-curvature-based pre-emptive braking to navigate complex parametric paths.
 
 ---
 
-## What it does
+## 🚀 What it does
 
-It simulates a robot trying to stay on a moving target point along a parametric path. The physics are grounded in real vehicle dynamics concepts:
+KammRobo simulates a robot (yellow/green dot) attempting to track a target point (grey dot) along various mathematical paths. The simulation is grounded in vehicle dynamics concepts:
 
-- **PID steering** — proportional, integral, and derivative gain control drives the robot toward the target dot
-- **Friction Circle** — lateral and longitudinal forces share a single grip budget (μmg), modeled after the Kamm Circle
-- **Centripetal force** — the simulation computes the instantaneous radius of curvature and checks whether speed exceeds the grip limit
-- **Pre-emptive braking** — when the path is sharpening (dR/dt < 0), the robot brakes ahead of the corner
-- **Drift detection** — if the robot exceeds the theoretical grip limit it snaps back to the nearest point on the path
-
-The robot turns **yellow** when drifting, **green** when stable.
+* **Modular Path Selection:** Choose between Hypotrochoids, Figure-Eights, Epitrochoids, and Lissajous curves via the interactive UI.
+* **PID Control:** A Proportional-Integral-Derivative controller manages steering forces based on the robot's error from the target.
+* **Kamm Circle Physics:** The robot has a limited "grip budget" ($\mu mg$). It must balance lateral cornering forces with longitudinal acceleration/braking.
+* **Centripetal Logic:** The simulation analytically calculates the instantaneous radius of curvature ($R$) to determine the maximum safe cornering speed.
+* **Drift State:** If speed exceeds the theoretical grip limit ($v > \sqrt{\mu g R}$), the robot enters a "Drift" state (yellow), losing grip until it can stabilize back onto the path.
 
 ---
 
-## Demo
+## 📂 Project Structure
 
-The path is a modified Lissajous curve:
+The project is modularized for better scalability and readability:
 
-```
-x(t) = cx + 250·cos(1.2t)
-y(t) = cy + 180·sin(1.1t)
-```
-
-The red dot is the target. KammRobo chases after it in real time.
-
----
-
-## Requirements
-
-- Python 3.8+
-- Pygame
-
-Install dependencies:
-
-```bash
-pip install pygame
-```
+* **`main.py`**: The entry point. Handles the Pygame loop, event polling, and high-level orchestration.
+* **`robot.py`**: Contains the `Robot` class. Encapsulates physics state, PID calculations, and friction circle logic.
+* **`path_generators.py`**: Pure mathematical functions for all parametric paths and curvature logic.
+* **`ui_elements.py`**: Handles the "Cyber" UI buttons, glass-effect panels, and telemetry rendering.
+* **`config.py`**: Central hub for constants, colors, and physics scaling.
 
 ---
 
-## Run it
+## 🛠️ Requirements & Setup
 
-```bash
-python robot_sim.py
-```
+* Python 3.8+
+* Pygame
 
-Close the window to exit.
+1.  **Install dependencies:**
+    ```bash
+    pip install pygame
+    ```
 
----
-
-## Tuning
-
-All key constants are at the top of `robot_sim.py`:
-
-| Constant | Default | Effect |
-|---|---|---|
-| `PIXELS_PER_METER` | `100` | Scale factor — higher = more grip force |
-| `co_of_friction` | `0.7` | Grip level (μ). Try 0.3 for ice, 1.2 for race slicks |
-| `kp` | `8.0` | How aggressively the robot steers toward the target |
-| `ki` | `0.5` | Corrects accumulated drift over time |
-| `kd` | `1.5` | Dampens oscillation |
+2.  **Run the simulation:**
+    ```bash
+    python main.py
+    ```
 
 ---
 
-## Physics notes
+## ⚙️ Tuning the Physics
 
-Forces are computed in **pixel-space** (pixels per second²), scaled from SI units using `PIXELS_PER_METER = 100`. This means:
+Key constants are located in `config.py` and the `Robot` class initialization:
 
-- `g = 9.80665 m/s²` → `980.665 px/s²`
-- `max_frictional_force = m · g_px · μ` ≈ `686 px-force`
-- Radius of curvature `R` is derived analytically from the path derivatives
-
-The centripetal force check is: `F_lat = mv²/R`, where `v` is in px/s and `R` is in px.
+| Variable | Location | Effect |
+| :--- | :--- | :--- |
+| `PIXELS_PER_METER` | `config.py` | Scale factor (default 100). Higher = smaller world scale. |
+| `co_of_friction` | `robot.py` | Grip level ($\mu$). 0.3 = Ice, 0.7 = Dry Asphalt, 1.2 = Slicks. |
+| `kp / ki / kd` | `robot.py` | PID Gains. Dynamically scaled by the robot's mass for stability. |
 
 ---
 
-## Comments from Creator
-KammRobo is definetely not yet a finished project and is definetely open to contributions. I'm just very excited to finally make something of my own that truly reflects my intrest in Robotics. Let's Goooo!!
+## 🧠 Physics Deep Dive
+
+### The Friction Circle
+The robot's total available force is limited by the friction between the tires and the surface:
+$$F_{max} = m \cdot g \cdot \mu$$
+
+The simulation prioritizes lateral force ($F_{lat}$) to maintain the curve. Any remaining "budget" is used for longitudinal acceleration or braking ($F_{long}$):
+$$F_{long\_budget} = \sqrt{F_{max}^2 - F_{lat}^2}$$
+
+### Radius of Curvature
+For any path defined by $x(t), y(t)$, the instantaneous radius $R$ is calculated as:
+$$R = \frac{(x'^2 + y'^2)^{1.5}}{|x'y'' - y'x''|}$$
+
+---
+
+## 🤝 Contributing
+KammRobo is definitely not yet a finished project and is open to contributions. I'm excited to finally make something that reflects my interest in Robotics! 
+
+**Key areas for contribution:**
+* Adding more complex path types (Splines or CSV-based race tracks).
+* Implementing a "Ghost" robot with a different PID tune for performance comparison.
+* Adding multi-robot collision physics.
+
+**Let's Goooo!!** 🏎️💨
 
 ## License
-
 MIT
