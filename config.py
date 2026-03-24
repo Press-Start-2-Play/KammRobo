@@ -1,0 +1,17 @@
+import pygame
+
+# --- SCREEN SETUP ---
+WIDTH, HEIGHT = 1266, 680
+CENTER_X, CENTER_Y = WIDTH // 2, HEIGHT // 2
+
+# --- SCALE ---
+PIXELS_PER_METER = 100.0
+
+# --- COLORS ---
+CLR_BG = (10, 12, 15)
+CLR_PATH = (40, 45, 50)
+CLR_TRACK = (0, 255, 200)
+CLR_DRIFT = (255, 50, 50)
+CLR_TEXT = (200, 210, 220)
+CYAN = (0, 220, 220)
+CYAN_DIM = (0, 180, 180)
