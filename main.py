@@ -52,7 +52,7 @@ while running:
 
     # 2. Logic Updates
     path_time += dt
-    path_time, speed, is_drifting, target = robot.update(dt, path_time, current_func)
+    path_time, speed, is_drifting, target = robot.PID_update(dt, path_time, current_func)
 
     for btn in buttons:
         btn.update(mouse_pos)
