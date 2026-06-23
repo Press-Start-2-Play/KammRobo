@@ -4,12 +4,12 @@ from paths import Hypotrochoid, Figure_Eight, Epitrochoid, Lissajous
 from ui_elements import CyberButton, draw_header, draw_status_panel, init_fonts
 from robot import Robot
 
-# --- INITIALIZATION ---
+# --- Initialization 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 pygame.display.set_caption('KammRobo')
-init_fonts() 
+init_fonts()
 
 # --- BUTTON SETUP ---
 BUTTON_W, BUTTON_H, PADDING = 200, 42, 18

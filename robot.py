@@ -23,7 +23,7 @@ class Robot:
         self.last_error   = pygame.Vector2(0, 0)
         self.last_R = 10000
         self.heading = 0
-        self.stanley_gain = 4.0*mass
+        self.stanley_gain = 5.0*mass
         self.wheelbase = 50
 
     def Heading_update(self):
@@ -108,7 +108,7 @@ class Robot:
         # Note: Pygame's y-axis is inverted. This math assumes standard atan2 logic.
         path_dir = path_vec.normalize() if path_vec.length() > 0 else pygame.Vector2(1, 0)
         
-        # e is the perpendicular distance (cross product of path direction and error vector)
+        # e is the perpendicular distance (cross product of unit path direction vector and error vector)
         e = (error_vec.y * path_dir.x) - (error_vec.x * path_dir.y)
 
         # --- Stanley term ---
@@ -119,9 +119,9 @@ class Robot:
         correction = math.atan2(self.stanley_gain * e, v)
 
         # Final steering angle (bounded to realistic steering limits, e.g., +/- 30 degrees)
-        max_steer = math.radians(30)
+        # max_steer = math.radians(30)
         steering_angle = heading_error + correction
-        steering_angle = max(-max_steer, min(steering_angle, max_steer))
+        # steering_angle = max(-max_steer, min(steering_angle, max_steer))
 
         return steering_angle, path_time
 
@@ -132,7 +132,7 @@ class Robot:
         steering_angle, path_time = self.Stanley_steering_angle(path_time, current_func)
 
         # --- Speed control (Longitudinal) ---
-        desired_speed = 200  
+        desired_speed = 400  
         speed = self.vel.length()
         speed_error = desired_speed - speed
         

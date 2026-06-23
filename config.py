@@ -1,7 +1,7 @@
 import pygame
 
 # --- SCREEN SETUP ---
-WIDTH, HEIGHT = 1266, 680
+WIDTH, HEIGHT = 1000, 600
 CENTER_X, CENTER_Y = WIDTH // 2, HEIGHT // 2
 
 # --- SCALE ---
